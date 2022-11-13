@@ -1,7 +1,7 @@
 from compas.artists import Artist
-from compas.geometry import NurbsCurve, Point, NurbsSurface
+from compas.geometry import NurbsCurve, Point, Plane, Polyline, intersection_polyline_plane
 
-
+from BW_000_utils import frange
 
 import random
 import math
@@ -21,7 +21,7 @@ curve_count = 3
 wall_height = 2
 wall_length = 5
 CP_count = 4 # can't be less than 3
-y_offset = 1.5
+y_offset = 1
 
 
 # =============================================================================
@@ -105,26 +105,40 @@ for points in transposed_points:
     vertical_curves.append(curve)
 
 # =============================================================================
-# Points for horizontal curves
+# Points for brick positions
 # =============================================================================
-
-number_of_horizontal_curves = math.floor(wall_height / (brick_height + cement_thickness))
-print("number of horizontal curves: ", number_of_horizontal_curves)
 
 step = brick_height + cement_thickness
-ratio = 1 / step
-print("ratio: ", ratio)
+number_of_horizontal_curves = math.floor(wall_height / (step))
+z_values = list(frange(0, step * number_of_horizontal_curves, step, decimals=2))
+
+
+# create planes for each z value
+planes = [Plane(Point(0, 0, z), [0, 0, 1]) for z in z_values]
+
+# intersect each vertical curve with each plane
+brick_points = [[] for _ in range(len(vertical_curves))]
+vertical_polylines = [curve.to_polyline() for curve in vertical_curves]
+
+
+for poly_idx, poly in enumerate(vertical_polylines):
+    for plane in planes:
+        points = intersection_polyline_plane(poly, plane)
+        brick_points[poly_idx].append(Point(*points[0]))
+
 
 
 # =============================================================================
-# Horizontal curves
+# Orient planes on each brick point
 # =============================================================================
 
-horizontal_curves = []
-horizontal_degree = 1
+brick_planes = []
 
+# =============================================================================
+# Construct bricks on each plane
+# =============================================================================
 
-
+bricks = []
 
 # =============================================================================
 # Viz
@@ -143,7 +157,8 @@ else:
         viewer.add(curve.to_polyline())
     for curve in vertical_curves:
         viewer.add(curve.to_polyline())
-    for point in new_points:
-        viewer.add(point)
 
+    for points in brick_points:
+        for point in points:
+            viewer.add(point)
     viewer.show()
